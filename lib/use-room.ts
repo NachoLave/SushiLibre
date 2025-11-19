@@ -13,6 +13,8 @@ export function useRoom(roomId: string) {
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const lastUpdateTimeRef = useRef<Map<string, number>>(new Map());
+
   const fetchRoom = useCallback(async () => {
     if (!roomId) return;
     const normalizedRoomId = roomId.toUpperCase();
@@ -27,7 +29,35 @@ export function useRoom(roomId: string) {
       }
 
       const data: ApiRoomResponse = await response.json();
-      setRoom(data.room);
+      
+      // Actualizar desde el servidor, pero preservar valores locales recientes
+      setRoom((prev) => {
+        if (!prev) return data.room;
+        
+        // Para cada participante, si hay una actualización local reciente (últimos 2 segundos),
+        // preservar el valor local, de lo contrario usar el del servidor
+        const mergedParticipants = data.room.participantes.map((serverP) => {
+          const localP = prev.participantes.find((p) => p.id === serverP.id);
+          if (!localP) return serverP;
+          
+          const lastUpdate = lastUpdateTimeRef.current.get(serverP.id) || 0;
+          const timeSinceUpdate = Date.now() - lastUpdate;
+          
+          // Si la actualización local fue hace menos de 2 segundos, usar el valor local
+          if (timeSinceUpdate < 2000 && localP.piezas !== serverP.piezas) {
+            return localP;
+          }
+          
+          // De lo contrario, usar el valor del servidor (puede tener actualizaciones de otros usuarios)
+          return serverP;
+        });
+        
+        return {
+          ...data.room,
+          participantes: mergedParticipants,
+        };
+      });
+      
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -81,6 +111,10 @@ export function useRoom(roomId: string) {
 
   const updateParticipant = useCallback(
     async (participantId: string, piezas: number) => {
+      // Marcar el tiempo de actualización local
+      lastUpdateTimeRef.current.set(participantId, Date.now());
+      
+      // Optimistic update - actualizar inmediatamente en el estado local
       setRoom((prev) =>
         prev
           ? {
@@ -92,7 +126,15 @@ export function useRoom(roomId: string) {
           : prev
       );
 
-      await patchParticipant({ userId: participantId, piezas });
+      // Enviar al servidor
+      const updatedRoom = await patchParticipant({ userId: participantId, piezas });
+      
+      // Confirmar con los datos del servidor (puede tener actualizaciones de otros participantes)
+      if (updatedRoom) {
+        setRoom(updatedRoom);
+        // Actualizar el tiempo de última actualización después de confirmar con el servidor
+        lastUpdateTimeRef.current.set(participantId, Date.now());
+      }
     },
     [patchParticipant]
   );

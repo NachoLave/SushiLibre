@@ -131,27 +131,7 @@ export async function patchParticipantInRoom(
     }
   );
 
-  // Si todos finalizaron, guardar automáticamente en finished_rooms
-  if (allFinished && !doc.finalizado) {
-    const finishedRooms = await getFinishedRoomsCollection();
-    const finishedAt = Date.now();
-    const fecha = new Date().toLocaleDateString('es-ES');
-    
-    // Verificar si ya existe para evitar duplicados
-    const existing = await finishedRooms.findOne({ roomId });
-    if (!existing) {
-      const finishedDoc: FinishedRoomDocument = {
-        roomId: doc.id,
-        participantes: participants.map((p) => ({
-          nombre: p.nombre,
-          piezas: p.piezas,
-        })),
-        fecha,
-        finishedAt,
-      };
-      await finishedRooms.insertOne(finishedDoc);
-    }
-  }
+  // NO guardar automáticamente en finished_rooms - solo se guarda cuando se llama explícitamente a markRoomAsFinished
 
   return toRoom({ ...doc, participantes, finalizado, updatedAt });
 }
@@ -165,6 +145,24 @@ export async function markRoomAsFinished(roomId: string): Promise<Room | null> {
   }
 
   if (doc.finalizado) {
+    // Si ya está finalizado, verificar si ya está guardado en finished_rooms
+    const finishedRooms = await getFinishedRoomsCollection();
+    const existing = await finishedRooms.findOne({ roomId });
+    if (!existing) {
+      // Si no está guardado, guardarlo ahora
+      const finishedAt = Date.now();
+      const fecha = new Date().toLocaleDateString('es-ES');
+      const finishedDoc: FinishedRoomDocument = {
+        roomId: doc.id,
+        participantes: doc.participantes.map((p) => ({
+          nombre: p.nombre,
+          piezas: p.piezas,
+        })),
+        fecha,
+        finishedAt,
+      };
+      await finishedRooms.insertOne(finishedDoc);
+    }
     return toRoom(doc);
   }
 
@@ -179,7 +177,7 @@ export async function markRoomAsFinished(roomId: string): Promise<Room | null> {
     }
   );
 
-  // Guardar en finished_rooms automáticamente
+  // Guardar en finished_rooms SOLO cuando se llama explícitamente a esta función
   const finishedRooms = await getFinishedRoomsCollection();
   const finishedAt = Date.now();
   const fecha = new Date().toLocaleDateString('es-ES');

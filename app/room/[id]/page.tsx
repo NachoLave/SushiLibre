@@ -11,10 +11,11 @@ import RankingModal from '@/components/ranking-modal';
 
 export default function Room({ params }: { params: Promise<{ id: string }> }) {
   const { id: roomId } = use(params);
-  const { room, loading, error, updateParticipant, finishParticipant } = useRoom(roomId);
+  const { room, loading, error, updateParticipant, finishParticipant, finishRoom } = useRoom(roomId);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [showRanking, setShowRanking] = useState(false);
   const [finishingStatus, setFinishingStatus] = useState<'idle' | 'finishing' | 'done'>('idle');
+  const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const router = useRouter();
 
   useEffect(() => {
@@ -58,16 +59,34 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
     setFinishingStatus('finishing');
     const updatedRoom = await finishParticipant(currentUserId);
 
+    // NO salir automáticamente - esperar a que todos finalicen
+    // El ranking se mostrará cuando room.finalizado sea true (cuando todos finalicen)
+    setFinishingStatus('idle');
+    
+    // Si todos finalizaron, mostrar el ranking
     if (updatedRoom?.finalizado) {
       setShowRanking(true);
-      setFinishingStatus('done');
-      return;
     }
-
-    setFinishingStatus('idle');
   };
 
-  if (showRanking || room.finalizado) {
+  const handleSaveRoom = async () => {
+    if (!allFinished || room.finalizado) return;
+    setSavingStatus('saving');
+    try {
+      await finishRoom();
+      setSavingStatus('saved');
+      // Mostrar ranking después de guardar
+      setTimeout(() => {
+        setShowRanking(true);
+      }, 500);
+    } catch (error) {
+      console.error('Error al guardar la sala:', error);
+      setSavingStatus('idle');
+    }
+  };
+
+  // Solo mostrar ranking cuando TODOS hayan finalizado Y la sala esté marcada como finalizada
+  if (showRanking || (room.finalizado && allFinished)) {
     return (
       <RankingModal
         room={room}
@@ -125,10 +144,27 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
           </>
         )}
 
-        {allFinished && (
+        {allFinished && !room.finalizado && (
+          <div className="space-y-3">
+            <div className="bg-green-100/80 border border-green-300 rounded-2xl p-3 text-center">
+              <p className="text-sm font-medium text-green-700">
+              ¡Todos finalizaron! Guarda la sala para ver el ranking.
+            </p>
+            </div>
+            <button
+              onClick={handleSaveRoom}
+              disabled={savingStatus !== 'idle'}
+              className="w-full bg-primary hover:bg-primary/90 disabled:bg-green-500 text-primary-foreground disabled:text-white font-semibold py-4 px-6 rounded-2xl transition-all duration-200 hover:shadow-lg active:scale-95 transform"
+            >
+              {savingStatus === 'saving' ? 'Guardando...' : savingStatus === 'saved' ? '✓ Guardado' : '💾 Guardar Sala y Ver Ranking'}
+            </button>
+          </div>
+        )}
+
+        {allFinished && room.finalizado && (
           <div className="bg-accent/10 border border-accent rounded-2xl p-3 text-center">
             <p className="text-sm font-medium text-accent">
-              ¡Todos listos! Cargando ranking...
+              ¡Sala guardada! Mostrando ranking...
             </p>
           </div>
         )}
