@@ -57,15 +57,24 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
   const handleFinish = async () => {
     if (!currentParticipant || currentParticipant.finalizado) return;
     setFinishingStatus('finishing');
-    const updatedRoom = await finishParticipant(currentUserId);
-
-    // NO salir automáticamente - esperar a que todos finalicen
-    // El ranking se mostrará cuando room.finalizado sea true (cuando todos finalicen)
-    setFinishingStatus('idle');
     
-    // Si todos finalizaron, mostrar el ranking
-    if (updatedRoom?.finalizado) {
-      setShowRanking(true);
+    try {
+      const updatedRoom = await finishParticipant(currentUserId);
+      
+      // Esperar un momento para que el estado se actualice
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // NO salir automáticamente - esperar a que todos finalicen
+      // El ranking se mostrará cuando room.finalizado sea true (cuando todos finalicen)
+      setFinishingStatus('idle');
+      
+      // Si todos finalizaron, mostrar el ranking
+      if (updatedRoom?.finalizado) {
+        setShowRanking(true);
+      }
+    } catch (error) {
+      console.error('Error al finalizar:', error);
+      setFinishingStatus('idle');
     }
   };
 
