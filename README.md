@@ -1,98 +1,128 @@
-# Sushi Score
+# 🍣 Sushi Score
 
-Aplicación web para organizar batallas de sushi libre. Permite crear una sala, invitar participantes mediante un código y que cada persona lleve su propio conteo de piezas en tiempo real desde su dispositivo. Cuando todos finalizan, se muestra un ranking con los resultados y se puede guardar la sesión en el historial local.
+**El contador definitivo para sushi libre**
 
-## Características
+🌐 **URL en producción:** https://sushi-libre.vercel.app/
 
-- Creación y unión a salas mediante un identificador aleatorio.
-- Identidad persistente por dispositivo usando `localStorage`.
-- Contador individual con gestos táctiles o clics.
-- Sincronización local entre participantes de la misma sala.
-- Ranking final con guardado del resultado en el historial.
-- Interfaz pensada para móviles y pantallas táctiles.
+---
 
-## Tecnologías
+## ¿Qué es Sushi Score?
 
-- Next.js 16 (App Router) y React 19.
-- Tailwind CSS y componentes Radix UI.
-- Persistencia híbrida: `localStorage` para historial personal y MongoDB para compartir salas en tiempo real entre dispositivos.
-- PNPM como gestor de paquetes.
+Sushi Score es una aplicación web diseñada para hacer tus comidas de sushi libre más divertidas y competitivas. ¿Alguna vez has ido a un restaurante de sushi libre con amigos y querías saber quién comió más? Ahora puedes hacerlo de forma fácil y en tiempo real.
 
-## Requisitos
+### 🎯 El Problema que Resuelve
 
-- Node.js 20+
-- PNPM 9+
+Cuando vas a un restaurante de sushi libre con amigos, es difícil llevar la cuenta de quién comió más piezas. Los contadores tradicionales no funcionan bien cuando cada persona está en su propio dispositivo, y no hay forma de ver en tiempo real cómo van los demás.
 
-## Configuración local
+### ✨ La Solución
 
-1. Crea un archivo `.env.local` en la raíz con:
+Sushi Score te permite:
+- **Crear una sala virtual** con un código único
+- **Invitar a tus amigos** a unirse con ese código
+- **Contar tus piezas en tiempo real** desde tu propio celular
+- **Ver cómo van los demás** mientras comen
+- **Obtener un ranking final** al terminar la comida
+- **Guardar tus partidas** para ver tu historial y récords
 
-```
-MONGODB_URI=<cadena de conexión con usuario y contraseña>
-MONGODB_DB=sushilibre
-```
+---
 
-2. Instala dependencias y arranca el entorno:
+## 🚀 Características Principales
 
-```bash
-pnpm install
-pnpm dev
-```
+### 📱 Diseño Móvil-First
+- Interfaz optimizada para celulares y tablets
+- Contador táctil: toca la pantalla para sumar, desliza hacia abajo para restar
+- Animaciones y sonidos que hacen la experiencia más divertida
 
-La aplicación quedará disponible en `http://localhost:3000`.
+### 🎮 Experiencia Interactiva
+- Modelo 3D de sushi con animaciones
+- Piezas de sushi cayendo cuando aumentas el contador
+- Sonidos de "comer" que hacen la experiencia más inmersiva
+- Feedback visual con números flotantes (+1)
 
-## Configuración de MongoDB Atlas
+### 👥 Multijugador en Tiempo Real
+- Múltiples personas pueden unirse a la misma sala
+- Sincronización automática: ves los contadores de los demás en vivo
+- Todos deben finalizar para ver el ranking
+- Los resultados se guardan automáticamente en la nube
 
-Para que la aplicación funcione correctamente en producción, necesitas configurar MongoDB Atlas:
+### 📊 Historial y Estadísticas
+- Busca cualquier partida por su código de sala
+- Ve todas tus partidas guardadas
+- Revisa el ranking de partidas anteriores
+- Compara tus resultados con amigos
 
-1. **Crear un cluster en MongoDB Atlas** (si aún no lo tienes)
-2. **Configurar la whitelist de IPs:**
-   - Ve a "Network Access" en MongoDB Atlas
-   - Agrega `0.0.0.0/0` para permitir conexiones desde cualquier IP (necesario para Vercel)
-   - O agrega las IPs específicas de Vercel si prefieres mayor seguridad
-3. **Crear un usuario de base de datos:**
-   - Ve a "Database Access"
-   - Crea un usuario con permisos de lectura/escritura
-4. **Obtener la cadena de conexión:**
-   - Ve a "Database" → "Connect"
-   - Selecciona "Connect your application"
-   - Copia la URI de conexión (formato: `mongodb+srv://usuario:password@cluster.mongodb.net/`)
+### 🎨 Interfaz Moderna y Atractiva
+- Diseño limpio con gradientes suaves
+- Colores pastel que no cansan la vista
+- Animaciones fluidas y responsivas
+- Experiencia visual agradable
 
-## Despliegue en Vercel
+---
 
-1. **Configura las variables de entorno en Vercel:**
-   - Ve a tu proyecto en Vercel Dashboard
-   - Settings → Environment Variables
-   - Agrega:
-     - `MONGODB_URI`: tu cadena de conexión completa de MongoDB Atlas
-     - `MONGODB_DB`: nombre de la base de datos (ej: `sushilibre`)
+## 🎮 ¿Cómo Funciona?
 
-2. **Importante:** Asegúrate de que la whitelist de IPs en MongoDB Atlas permita conexiones desde Vercel (usa `0.0.0.0/0` para desarrollo o agrega las IPs de Vercel)
+### 1. Crear una Sala
+- Haz clic en "Crear Sala"
+- Ingresa tu nombre
+- Obtén un código único (ej: `ABC123`)
+- Comparte el código con tus amigos
 
-3. Una vez desplegado, reemplaza la línea siguiente con el enlace final:
+### 2. Unirse a una Sala
+- Haz clic en "Unirse a Sala"
+- Ingresa el código que te compartieron
+- Ingresa tu nombre
+- ¡Ya estás en la partida!
 
-```
-URL en producción: https://tu-dominio.vercel.app
-```
+### 3. Contar Piezas
+- Toca la pantalla para sumar una pieza
+- Desliza hacia abajo para restar si te equivocaste
+- Ve en tiempo real cómo van los demás participantes
+- El contador se sincroniza automáticamente
 
-## Scripts útiles
+### 4. Finalizar y Ver Resultados
+- Cuando termines de comer, presiona "Finalizar"
+- Espera a que todos finalicen
+- Se mostrará el ranking automáticamente
+- La partida se guardará en el historial
 
-- `pnpm dev`: modo desarrollo con recarga en caliente.
-- `pnpm build`: compila la versión de producción.
-- `pnpm start`: ejecuta la build ya compilada.
-- `pnpm lint`: corre el linter.
+### 5. Ver Historial
+- Ve a "Ver Historial"
+- Busca partidas por código
+- O revisa todas las partidas guardadas
+- Ve los detalles completos de cada partida
 
-## Estructura principal
+---
 
-- `app/`: rutas y páginas del App Router.
-- `components/`: componentes reutilizables de UI.
-- `hooks/`: hooks personalizados.
-- `lib/`: utilidades y lógica para salas/almacenamiento.
-- `public/`: assets estáticos.
+## 🎯 Casos de Uso
 
-## Próximos pasos sugeridos
+- **Grupos de amigos** que van a sushi libre y quieren competir
+- **Eventos corporativos** con actividades de team building
+- **Familias** que quieren hacer divertida la comida
+- **Cualquier persona** que quiera llevar la cuenta de cuánto come
 
-- Habilitar WebSockets o un servicio tipo Ably/Pusher para actualizar los contadores instantáneamente sin polling.
-- Añadir autenticación para respaldar el historial en la nube.
+---
 
+## 🌟 ¿Por Qué Usar Sushi Score?
 
+✅ **Gratis y sin registro** - Solo necesitas un código para empezar  
+✅ **Funciona en cualquier dispositivo** - Celular, tablet o computadora  
+✅ **Sincronización en tiempo real** - Ve cómo van los demás mientras comes  
+✅ **Historial permanente** - Todas tus partidas se guardan en la nube  
+✅ **Interfaz intuitiva** - Fácil de usar para cualquier persona  
+✅ **Diseño atractivo** - Experiencia visual agradable y moderna  
+
+---
+
+## 📝 Licencia
+
+Este proyecto es de código abierto y está disponible para uso personal y comercial.
+
+---
+
+## 🤝 Contribuciones
+
+Las contribuciones son bienvenidas. Siéntete libre de abrir un issue o un pull request.
+
+---
+
+**¡Disfruta tus batallas de sushi libre! 🍣**
