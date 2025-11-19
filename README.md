@@ -4,6 +4,8 @@
 
 🌐 **URL en producción:** https://sushi-libre.vercel.app/
 
+👨‍💻 **Desarrollado por:** [Ignacio Lavezzari](https://www.linkedin.com/in/ignacio-lavezzari/)
+
 ---
 
 ## ¿Qué es Sushi Score?
