@@ -144,7 +144,27 @@ export async function patchParticipantInRoom(
     }
   );
 
-  // NO guardar automáticamente en finished_rooms - solo se guarda cuando se llama explícitamente a markRoomAsFinished
+  // Si todos finalizaron y la sala no estaba finalizada antes, guardar automáticamente en finished_rooms
+  if (allFinished && !doc.finalizado) {
+    const finishedRooms = await getFinishedRoomsCollection();
+    const finishedAt = Date.now();
+    const fecha = new Date().toLocaleDateString('es-ES');
+    
+    // Verificar si ya existe para evitar duplicados
+    const existing = await finishedRooms.findOne({ roomId: doc.id });
+    if (!existing) {
+      const finishedDoc: FinishedRoomDocument = {
+        roomId: doc.id,
+        participantes: participants.map((p) => ({
+          nombre: p.nombre,
+          piezas: p.piezas,
+        })),
+        fecha,
+        finishedAt,
+      };
+      await finishedRooms.insertOne(finishedDoc);
+    }
+  }
 
   return toRoom({ ...doc, participantes: participants, finalizado, updatedAt });
 }

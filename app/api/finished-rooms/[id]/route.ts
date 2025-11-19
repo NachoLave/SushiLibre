@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getFinishedRoomsCollection } from '@/lib/db';
+import { getFinishedRoomsCollection, getRoomsCollection } from '@/lib/db';
+import { getRoomFromServer } from '@/lib/server-room';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +22,31 @@ export async function GET(
     const finishedRoom = await finishedRooms.findOne({ roomId });
 
     if (!finishedRoom) {
+      // Si no está en finished_rooms, buscar en rooms para ver si está finalizada
+      // Si está finalizada, guardarla automáticamente en finished_rooms
+      const room = await getRoomFromServer(roomId);
+      
+      if (room && room.finalizado) {
+        // La sala está finalizada pero no está guardada en finished_rooms
+        // Guardarla automáticamente ahora
+        const finishedAt = Date.now();
+        const fecha = new Date().toLocaleDateString('es-ES');
+        const finishedDoc = {
+          roomId: room.id,
+          participantes: room.participantes.map((p) => ({
+            nombre: p.nombre,
+            piezas: p.piezas,
+          })),
+          fecha,
+          finishedAt,
+        };
+        
+        await finishedRooms.insertOne(finishedDoc);
+        
+        // Retornar la sala guardada
+        return NextResponse.json({ room: finishedDoc });
+      }
+      
       // Intentar buscar sin importar mayúsculas/minúsculas como fallback
       const allRooms = await finishedRooms.find({}).toArray();
       const foundRoom = allRooms.find(r => r.roomId?.toUpperCase() === roomId);
@@ -32,7 +58,7 @@ export async function GET(
       
       // Log para debugging
       console.log(`Sala ${roomId} no encontrada en finished_rooms. Total de salas: ${allRooms.length}`);
-      return NextResponse.json({ message: 'Sala no encontrada en el historial. Verifica que la sala haya sido finalizada y guardada.' }, { status: 404 });
+      return NextResponse.json({ message: 'Sala no encontrada. Verifica que la sala haya sido finalizada.' }, { status: 404 });
     }
 
     // Remover _id del objeto antes de enviarlo
