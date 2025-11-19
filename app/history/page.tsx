@@ -20,6 +20,8 @@ interface FinishedRoom {
 
 export default function History() {
   const [sessions, setSessions] = useState<SessionData[]>([]);
+  const [finishedRooms, setFinishedRooms] = useState<FinishedRoom[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
   const [searchId, setSearchId] = useState('');
   const [searchResult, setSearchResult] = useState<FinishedRoom | null>(null);
   const [searching, setSearching] = useState(false);
@@ -42,19 +44,37 @@ export default function History() {
         totalSesiones: history.sessions.length,
       });
     }
+
+    // Cargar todas las salas finalizadas de MongoDB
+    const loadFinishedRooms = async () => {
+      try {
+        setLoadingRooms(true);
+        const response = await fetch('/api/finished-rooms');
+        if (response.ok) {
+          const data = await response.json();
+          setFinishedRooms(data.rooms || []);
+        }
+      } catch (error) {
+        console.error('Error al cargar salas finalizadas:', error);
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+
+    loadFinishedRooms();
   }, []);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedId = searchId.trim().toUpperCase();
-    if (!trimmedId) return;
+  const handleSearch = async (roomId?: string) => {
+    const idToSearch = roomId || searchId.trim().toUpperCase();
+    if (!idToSearch) return;
 
+    setSearchId(idToSearch);
     setSearching(true);
     setSearchError('');
     setSearchResult(null);
 
     try {
-      const response = await fetch(`/api/finished-rooms/${trimmedId}`);
+      const response = await fetch(`/api/finished-rooms/${idToSearch}`);
       if (!response.ok) {
         if (response.status === 404) {
           setSearchError('Sala no encontrada. Verifica el código.');
@@ -75,6 +95,11 @@ export default function History() {
     }
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSearch();
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 flex flex-col p-4">
       <div className="max-w-2xl mx-auto w-full">
@@ -87,7 +112,7 @@ export default function History() {
         {/* Búsqueda por ID de sala */}
         <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-6 mb-8">
           <h2 className="text-xl font-semibold text-foreground mb-4">Buscar Sala por ID</h2>
-          <form onSubmit={handleSearch} className="space-y-4">
+          <form onSubmit={handleSearchSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Código de Sala</label>
               <input
@@ -140,71 +165,47 @@ export default function History() {
           )}
         </div>
 
-        {/* Historial local */}
-        <h2 className="text-2xl font-bold text-foreground mb-4">Sesiones Guardadas Localmente</h2>
-
-        {stats.totalSesiones > 0 && (
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Récord</p>
-              <p className="text-3xl font-bold text-primary">{stats.record}</p>
-            </div>
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Promedio</p>
-              <p className="text-3xl font-bold text-secondary">{stats.promedio}</p>
-            </div>
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-4 text-center">
-              <p className="text-xs text-muted-foreground mb-1">Sesiones</p>
-              <p className="text-3xl font-bold text-accent">{stats.totalSesiones}</p>
-            </div>
+        {/* Salas Finalizadas de MongoDB */}
+        <h2 className="text-2xl font-bold text-foreground mb-4">Partidas Guardadas</h2>
+        
+        {loadingRooms ? (
+          <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-8 text-center">
+            <p className="text-muted-foreground">Cargando partidas...</p>
           </div>
-        )}
-
-        <div className="space-y-4">
-          {sessions.length === 0 ? (
-            <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-8 text-center">
-              <p className="text-lg text-muted-foreground mb-4">📊 No hay sesiones guardadas</p>
-              <Link href="/create-room" className="text-primary hover:text-primary/80 font-medium">
-                ¡Crea una nueva batalla!
-              </Link>
-            </div>
-          ) : (
-            sessions.map((session, index) => (
-              <div
-                key={index}
-                className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-6"
+        ) : finishedRooms.length === 0 ? (
+          <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-8 text-center">
+            <p className="text-lg text-muted-foreground mb-4">📊 No hay partidas guardadas</p>
+            <Link href="/create-room" className="text-primary hover:text-primary/80 font-medium">
+              ¡Crea una nueva batalla!
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3 mb-8">
+            {finishedRooms.map((room) => (
+              <button
+                key={room.roomId}
+                onClick={() => handleSearch(room.roomId)}
+                className="w-full bg-white/60 backdrop-blur-md border border-white/40 rounded-2xl p-4 text-left hover:bg-white/80 transition-all duration-200 hover:shadow-lg active:scale-98"
               >
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-semibold text-foreground">{session.tuNombre}</h3>
-                    <p className="text-sm text-muted-foreground">{session.fecha}</p>
+                    <h3 className="font-semibold text-foreground text-lg">Sala {room.roomId}</h3>
+                    <p className="text-sm text-muted-foreground">{room.fecha}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {room.participantes.length} participante{room.participantes.length !== 1 ? 's' : ''}
+                    </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-3xl font-bold text-primary">{session.tuPuntaje}</p>
-                    <p className="text-xs text-muted-foreground">piezas</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {Math.max(...room.participantes.map(p => p.piezas))}
+                    </p>
+                    <p className="text-xs text-muted-foreground">máximo</p>
                   </div>
                 </div>
-
-                {/* Ranking preview */}
-                <div className="space-y-2 border-t border-border/50 pt-4">
-                  {session.participantes.slice(0, 3).map((p, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'} {p.nombre}
-                      </span>
-                      <span className="font-medium text-foreground">{p.piezas}</span>
-                    </div>
-                  ))}
-                  {session.participantes.length > 3 && (
-                    <p className="text-xs text-muted-foreground">
-                      +{session.participantes.length - 3} más...
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
