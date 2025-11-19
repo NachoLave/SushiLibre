@@ -9,13 +9,30 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const roomId = id.toUpperCase();
+    const roomId = id.toUpperCase().trim();
+    
+    if (!roomId || roomId.length === 0) {
+      return NextResponse.json({ message: 'Código de sala inválido' }, { status: 400 });
+    }
     
     const finishedRooms = await getFinishedRoomsCollection();
+    
+    // Buscar por roomId (ya está en mayúsculas)
     const finishedRoom = await finishedRooms.findOne({ roomId });
 
     if (!finishedRoom) {
-      return NextResponse.json({ message: 'Sala no encontrada en el historial' }, { status: 404 });
+      // Intentar buscar sin importar mayúsculas/minúsculas como fallback
+      const allRooms = await finishedRooms.find({}).toArray();
+      const foundRoom = allRooms.find(r => r.roomId?.toUpperCase() === roomId);
+      
+      if (foundRoom) {
+        const { _id, ...roomData } = foundRoom;
+        return NextResponse.json({ room: roomData });
+      }
+      
+      // Log para debugging
+      console.log(`Sala ${roomId} no encontrada en finished_rooms. Total de salas: ${allRooms.length}`);
+      return NextResponse.json({ message: 'Sala no encontrada en el historial. Verifica que la sala haya sido finalizada y guardada.' }, { status: 404 });
     }
 
     // Remover _id del objeto antes de enviarlo
