@@ -89,9 +89,11 @@ export function useRoom(roomId: string) {
           return serverP;
         });
         
+        // SIEMPRE usar el estado finalizado del servidor (no preservar local)
         return {
           ...data.room,
           participantes: mergedParticipants,
+          finalizado: data.room.finalizado, // SIEMPRE usar el del servidor
         };
       });
       
@@ -136,7 +138,41 @@ export function useRoom(roomId: string) {
         }
 
         const data: ApiRoomResponse = await response.json();
-        setRoom(data.room);
+        
+        // Hacer merge preservando valores locales del participante actual
+        setRoom((prev) => {
+          if (!prev) return data.room;
+          
+          const currentParticipantId = currentParticipantIdRef.current;
+          
+          const mergedParticipants = data.room.participantes.map((serverP) => {
+            const localP = prev.participantes.find((p) => p.id === serverP.id);
+            if (!localP) return serverP;
+            
+            // Si es el participante actual, preservar valores locales
+            if (serverP.id === currentParticipantId) {
+              const pendingValue = pendingUpdatesRef.current.get(serverP.id);
+              if (pendingValue !== undefined) {
+                return { 
+                  ...localP, 
+                  piezas: pendingValue,
+                  finalizado: localP.finalizado || localFinalizedRef.current.has(serverP.id)
+                };
+              }
+              return localP;
+            }
+            
+            // Para otros participantes, SIEMPRE usar el valor del servidor
+            return serverP;
+          });
+          
+          return {
+            ...data.room,
+            participantes: mergedParticipants,
+            finalizado: data.room.finalizado, // SIEMPRE usar el del servidor
+          };
+        });
+        
         return data.room;
       } catch (err) {
         console.error(err);
@@ -170,33 +206,10 @@ export function useRoom(roomId: string) {
       );
 
       try {
-        // Enviar al servidor
+        // Enviar al servidor (el merge ya se hace en patchParticipant)
         const updatedRoom = await patchParticipant({ userId: participantId, piezas });
         
         if (updatedRoom) {
-          // Actualizar el estado pero preservar nuestro valor local
-          setRoom((prev) => {
-            if (!prev) return updatedRoom;
-            
-            const mergedParticipants = updatedRoom.participantes.map((serverP) => {
-              const localP = prev.participantes.find((p) => p.id === serverP.id);
-              if (!localP) return serverP;
-              
-              // Si es nuestro participante, SIEMPRE preservar nuestro valor local
-              if (serverP.id === participantId) {
-                return localP;
-              }
-              
-              // Para otros participantes, usar el valor del servidor
-              return serverP;
-            });
-            
-            return {
-              ...updatedRoom,
-              participantes: mergedParticipants,
-            };
-          });
-          
           // Actualizar el tiempo de última actualización después de confirmar con el servidor
           lastUpdateTimeRef.current.set(participantId, Date.now());
           // NO limpiar el valor pendiente - mantenerlo para que el polling lo respete
@@ -230,37 +243,31 @@ export function useRoom(roomId: string) {
       );
 
       try {
+        // El merge ya se hace en patchParticipant, pero necesitamos asegurar que el estado finalizado se preserve
         const updatedRoom = await patchParticipant({ userId: participantId, finalizado: true });
         
-        // Confirmar con los datos del servidor, pero SIEMPRE preservar el estado finalizado local
+        // Asegurar que el estado finalizado se preserve después del merge
         if (updatedRoom) {
           setRoom((prev) => {
             if (!prev) return updatedRoom;
             
             const mergedParticipants = updatedRoom.participantes.map((serverP) => {
               const localP = prev.participantes.find((p) => p.id === serverP.id);
-              if (!localP) {
-                // Si es un nuevo participante del servidor, pero está en nuestra lista de finalizados
-                if (localFinalizedRef.current.has(serverP.id)) {
-                  return { ...serverP, finalizado: true };
-                }
-                return serverP;
-              }
+              if (!localP) return serverP;
               
-              // SIEMPRE preservar el estado finalizado si está marcado localmente
+              // Para nuestro participante, SIEMPRE preservar el estado finalizado
               if (serverP.id === participantId) {
-                // Para nuestro participante, SIEMPRE preservar el estado finalizado
                 return { ...localP, finalizado: true };
               }
               
-              // Para otros participantes, SIEMPRE usar el valor del servidor
-              // Esto permite ver cuando otros usuarios finalizan
+              // Para otros participantes, usar el valor del servidor (ya viene del merge en patchParticipant)
               return serverP;
             });
             
             return {
               ...updatedRoom,
               participantes: mergedParticipants,
+              finalizado: updatedRoom.finalizado, // SIEMPRE usar el del servidor
             };
           });
         }
