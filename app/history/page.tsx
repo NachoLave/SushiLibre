@@ -196,7 +196,7 @@ export default function History() {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-primary">
-                      {Math.max(...room.participantes.map(p => p.piezas))}
+                      {room.participantes.reduce((sum, p) => sum + p.piezas, 0)}
                     </p>
                     <p className="text-xs text-muted-foreground">{room.fecha}</p>
                   </div>
