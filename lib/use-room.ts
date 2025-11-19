@@ -83,18 +83,10 @@ export function useRoom(roomId: string) {
             };
           }
           
-          // Para otros participantes, usar el valor del servidor para ver actualizaciones
-          // Pero SIEMPRE preservar el estado finalizado si está marcado localmente
-          const merged = { ...serverP };
-          
-          // Preservar estado finalizado si está en la lista local
-          if (localFinalizedRef.current.has(serverP.id)) {
-            merged.finalizado = true;
-          } else if (localP.finalizado) {
-            merged.finalizado = true;
-          }
-          
-          return merged;
+          // Para otros participantes, SIEMPRE usar el valor del servidor
+          // Esto permite ver actualizaciones en tiempo real de otros usuarios
+          // NO preservar valores locales para otros participantes
+          return serverP;
         });
         
         return {
@@ -116,10 +108,10 @@ export function useRoom(roomId: string) {
     fetchRoom();
     pollRef.current && clearInterval(pollRef.current);
 
-    // Aumentar el intervalo de polling a 2 segundos para dar más tiempo a las actualizaciones
+    // Polling cada 1.5 segundos para actualizaciones más frecuentes
     pollRef.current = setInterval(() => {
       fetchRoom();
-    }, 2000);
+    }, 1500);
 
     return () => {
       if (pollRef.current) {
@@ -261,11 +253,9 @@ export function useRoom(roomId: string) {
                 return { ...localP, finalizado: true };
               }
               
-              // Para otros participantes, usar el valor del servidor pero preservar finalizado si está marcado
-              return {
-                ...serverP,
-                finalizado: localP.finalizado || localFinalizedRef.current.has(serverP.id) || serverP.finalizado
-              };
+              // Para otros participantes, SIEMPRE usar el valor del servidor
+              // Esto permite ver cuando otros usuarios finalizan
+              return serverP;
             });
             
             return {
