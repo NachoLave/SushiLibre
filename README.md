@@ -41,9 +41,35 @@ pnpm dev
 
 La aplicación quedará disponible en `http://localhost:3000`.
 
-## Despliegue
+## Configuración de MongoDB Atlas
 
-El proyecto está listo para desplegarse en Vercel. Una vez que tengas la URL pública, reemplaza la línea siguiente con el enlace final:
+Para que la aplicación funcione correctamente en producción, necesitas configurar MongoDB Atlas:
+
+1. **Crear un cluster en MongoDB Atlas** (si aún no lo tienes)
+2. **Configurar la whitelist de IPs:**
+   - Ve a "Network Access" en MongoDB Atlas
+   - Agrega `0.0.0.0/0` para permitir conexiones desde cualquier IP (necesario para Vercel)
+   - O agrega las IPs específicas de Vercel si prefieres mayor seguridad
+3. **Crear un usuario de base de datos:**
+   - Ve a "Database Access"
+   - Crea un usuario con permisos de lectura/escritura
+4. **Obtener la cadena de conexión:**
+   - Ve a "Database" → "Connect"
+   - Selecciona "Connect your application"
+   - Copia la URI de conexión (formato: `mongodb+srv://usuario:password@cluster.mongodb.net/`)
+
+## Despliegue en Vercel
+
+1. **Configura las variables de entorno en Vercel:**
+   - Ve a tu proyecto en Vercel Dashboard
+   - Settings → Environment Variables
+   - Agrega:
+     - `MONGODB_URI`: tu cadena de conexión completa de MongoDB Atlas
+     - `MONGODB_DB`: nombre de la base de datos (ej: `sushilibre`)
+
+2. **Importante:** Asegúrate de que la whitelist de IPs en MongoDB Atlas permita conexiones desde Vercel (usa `0.0.0.0/0` para desarrollo o agrega las IPs de Vercel)
+
+3. Una vez desplegado, reemplaza la línea siguiente con el enlace final:
 
 ```
 URL en producción: https://tu-dominio.vercel.app

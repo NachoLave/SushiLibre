@@ -16,9 +16,29 @@ export async function POST(request: Request) {
     const room = await createRoomOnServer(nombre, userId);
     return NextResponse.json({ room });
   } catch (error) {
-    console.error(error);
+    console.error('Error en POST /api/rooms:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+    
+    // Si es un error de conexión MongoDB, dar un mensaje más claro
+    if (errorName.includes('Mongo') || errorMessage.includes('SSL') || errorMessage.includes('TLS')) {
+      console.error('Error de conexión MongoDB:', {
+        name: errorName,
+        message: errorMessage,
+        hasUri: !!process.env.MONGODB_URI,
+        uriPrefix: process.env.MONGODB_URI?.substring(0, 20),
+      });
+      return NextResponse.json(
+        { 
+          message: 'Error de conexión con la base de datos. Verifica las variables de entorno MONGODB_URI y MONGODB_DB.',
+          error: errorMessage 
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { message: (error as Error).message || 'Error al crear la sala.' },
+      { message: errorMessage || 'Error al crear la sala.' },
       { status: 500 }
     );
   }

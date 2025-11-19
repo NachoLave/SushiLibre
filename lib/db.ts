@@ -5,6 +5,11 @@ const dbName = process.env.MONGODB_DB || 'sushilibre';
 
 const options: MongoClientOptions = {
   maxPoolSize: 10,
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 10000,
+  retryWrites: true,
+  retryReads: true,
 };
 
 let client: MongoClient;
@@ -15,6 +20,21 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
+function normalizeMongoUri(uri: string): string {
+  // Asegurar que la URI tenga los parámetros necesarios para MongoDB Atlas
+  const url = new URL(uri);
+  
+  // Agregar parámetros si no existen
+  if (!url.searchParams.has('retryWrites')) {
+    url.searchParams.set('retryWrites', 'true');
+  }
+  if (!url.searchParams.has('w')) {
+    url.searchParams.set('w', 'majority');
+  }
+  
+  return url.toString();
+}
+
 function getClientPromise(): Promise<MongoClient> {
   const uri = process.env.MONGODB_URI;
   
@@ -22,15 +42,18 @@ function getClientPromise(): Promise<MongoClient> {
     throw new Error('MONGODB_URI no está definido en las variables de entorno');
   }
 
+  // Normalizar la URI para asegurar parámetros correctos
+  const normalizedUri = normalizeMongoUri(uri);
+
   if (process.env.NODE_ENV === 'development') {
     if (!global._mongoClientPromise) {
-      client = new MongoClient(uri, options);
+      client = new MongoClient(normalizedUri, options);
       global._mongoClientPromise = client.connect();
     }
     return global._mongoClientPromise;
   } else {
     if (!clientPromise) {
-      client = new MongoClient(uri, options);
+      client = new MongoClient(normalizedUri, options);
       clientPromise = client.connect();
     }
     return clientPromise;
