@@ -16,10 +16,12 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
   const [showRanking, setShowRanking] = useState(false);
   const [finishingStatus, setFinishingStatus] = useState<'idle' | 'finishing' | 'done'>('idle');
   const [savingStatus, setSavingStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [localFinalized, setLocalFinalized] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    setCurrentUserId(getOrCreateUserId());
+    const userId = getOrCreateUserId();
+    setCurrentUserId(userId);
   }, []);
 
   if (loading) {
@@ -55,14 +57,14 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
   const allFinished = finishedCount === totalCount;
 
   const handleFinish = async () => {
-    if (!currentParticipant || currentParticipant.finalizado) return;
+    if (!currentParticipant || currentParticipant.finalizado || localFinalized) return;
+    
+    // Marcar como finalizado localmente inmediatamente
+    setLocalFinalized(true);
     setFinishingStatus('finishing');
     
     try {
       const updatedRoom = await finishParticipant(currentUserId);
-      
-      // Esperar un momento para que el estado se actualice
-      await new Promise(resolve => setTimeout(resolve, 500));
       
       // NO salir automáticamente - esperar a que todos finalicen
       // El ranking se mostrará cuando room.finalizado sea true (cuando todos finalicen)
@@ -74,6 +76,7 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
       }
     } catch (error) {
       console.error('Error al finalizar:', error);
+      // NO revertir el estado local - mantenerlo marcado
       setFinishingStatus('idle');
     }
   };
@@ -135,7 +138,7 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
 
       {/* Bottom controls */}
       <div className="bg-white/40 backdrop-blur-md border-t border-white/40 p-4 space-y-3">
-        {!currentParticipant?.finalizado ? (
+        {!currentParticipant?.finalizado && !localFinalized ? (
           <>
             <button
               onClick={handleFinish}

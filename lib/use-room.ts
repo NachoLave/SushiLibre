@@ -15,6 +15,8 @@ export function useRoom(roomId: string) {
 
   const lastUpdateTimeRef = useRef<Map<string, number>>(new Map());
   const pendingUpdatesRef = useRef<Map<string, number>>(new Map());
+  const localFinalizedRef = useRef<Set<string>>(new Set());
+  const currentParticipantIdRef = useRef<string | null>(null);
 
   const fetchRoom = useCallback(async () => {
     if (!roomId) return;
@@ -31,46 +33,64 @@ export function useRoom(roomId: string) {
 
       const data: ApiRoomResponse = await response.json();
       
-      // Actualizar desde el servidor, pero preservar valores locales recientes solo para el participante actual
+      // Actualizar desde el servidor, pero SIEMPRE preservar valores locales para el participante actual
       setRoom((prev) => {
         if (!prev) return data.room;
         
-        // Obtener el ID del participante actual (el que tiene actualizaciones recientes)
-        const currentParticipantId = Array.from(lastUpdateTimeRef.current.keys()).find(
-          (id) => {
-            const lastUpdate = lastUpdateTimeRef.current.get(id) || 0;
-            return Date.now() - lastUpdate < 5000;
-          }
-        );
+        const currentParticipantId = currentParticipantIdRef.current;
         
         // Para cada participante del servidor
         const mergedParticipants = data.room.participantes.map((serverP) => {
           const localP = prev.participantes.find((p) => p.id === serverP.id);
           if (!localP) return serverP;
           
-          // Si es el participante actual, preservar valores locales recientes
+          // Si es el participante actual, SIEMPRE preservar valores locales
           if (serverP.id === currentParticipantId) {
-            const lastUpdate = lastUpdateTimeRef.current.get(serverP.id) || 0;
             const pendingValue = pendingUpdatesRef.current.get(serverP.id);
-            const timeSinceUpdate = Date.now() - lastUpdate;
             
             // Si hay un valor pendiente, usar ese
             if (pendingValue !== undefined) {
-              return { ...localP, piezas: pendingValue };
+              return { 
+                ...localP, 
+                piezas: pendingValue, 
+                finalizado: localP.finalizado || localFinalizedRef.current.has(serverP.id)
+              };
             }
             
-            // Si la actualización local fue hace menos de 3 segundos y el valor local es mayor o igual,
-            // preservar el valor local
-            if (timeSinceUpdate < 3000 && localP.piezas >= serverP.piezas) {
+            // SIEMPRE preservar el valor local si existe
+            // Solo actualizar desde el servidor si el valor del servidor es MAYOR (otro dispositivo)
+            // y la actualización local fue hace más de 5 segundos
+            const lastUpdate = lastUpdateTimeRef.current.get(serverP.id) || 0;
+            const timeSinceUpdate = Date.now() - lastUpdate;
+            
+            if (timeSinceUpdate < 5000) {
+              // Actualización muy reciente, SIEMPRE usar el local
               return localP;
             }
+            
+            // Si el servidor tiene un valor mayor y pasó tiempo, puede ser de otro dispositivo
+            // Pero aún así, preservar el local si es mayor o igual
+            if (localP.piezas >= serverP.piezas) {
+              return localP;
+            }
+            
+            // Solo usar el del servidor si es significativamente mayor (puede ser de otro dispositivo)
+            // Pero preservar el estado finalizado
+            return {
+              ...serverP,
+              finalizado: localP.finalizado || localFinalizedRef.current.has(serverP.id),
+              piezas: serverP.piezas > localP.piezas ? serverP.piezas : localP.piezas
+            };
           }
           
-          // Para otros participantes (o si el valor del servidor es más reciente),
-          // SIEMPRE usar el valor del servidor para ver actualizaciones de otros usuarios
-          // Pero preservar el estado finalizado si está marcado localmente
+          // Para otros participantes, usar el valor del servidor para ver actualizaciones
+          // Pero SIEMPRE preservar el estado finalizado si está marcado localmente
           const merged = { ...serverP };
-          if (localP.finalizado && !serverP.finalizado) {
+          
+          // Preservar estado finalizado si está en la lista local
+          if (localFinalizedRef.current.has(serverP.id)) {
+            merged.finalizado = true;
+          } else if (localP.finalizado) {
             merged.finalizado = true;
           }
           
@@ -96,9 +116,10 @@ export function useRoom(roomId: string) {
     fetchRoom();
     pollRef.current && clearInterval(pollRef.current);
 
+    // Aumentar el intervalo de polling a 2 segundos para dar más tiempo a las actualizaciones
     pollRef.current = setInterval(() => {
       fetchRoom();
-    }, 1500);
+    }, 2000);
 
     return () => {
       if (pollRef.current) {
@@ -136,6 +157,9 @@ export function useRoom(roomId: string) {
 
   const updateParticipant = useCallback(
     async (participantId: string, piezas: number) => {
+      // Guardar el ID del participante actual
+      currentParticipantIdRef.current = participantId;
+      
       // Marcar el tiempo de actualización local y el valor pendiente
       const updateTime = Date.now();
       lastUpdateTimeRef.current.set(participantId, updateTime);
@@ -157,12 +181,8 @@ export function useRoom(roomId: string) {
         // Enviar al servidor
         const updatedRoom = await patchParticipant({ userId: participantId, piezas });
         
-        // Confirmar con los datos del servidor (puede tener actualizaciones de otros participantes)
         if (updatedRoom) {
-          // Limpiar el valor pendiente ya que se confirmó
-          pendingUpdatesRef.current.delete(participantId);
-          
-          // Actualizar el estado con los datos del servidor, pero preservar nuestro valor si es más reciente
+          // Actualizar el estado pero preservar nuestro valor local
           setRoom((prev) => {
             if (!prev) return updatedRoom;
             
@@ -170,16 +190,12 @@ export function useRoom(roomId: string) {
               const localP = prev.participantes.find((p) => p.id === serverP.id);
               if (!localP) return serverP;
               
-              // Si es nuestro participante y nuestro valor es más reciente, preservarlo
+              // Si es nuestro participante, SIEMPRE preservar nuestro valor local
               if (serverP.id === participantId) {
-                const lastUpdate = lastUpdateTimeRef.current.get(participantId) || 0;
-                const timeSinceUpdate = Date.now() - lastUpdate;
-                if (timeSinceUpdate < 1000 && localP.piezas === piezas) {
-                  return localP;
-                }
+                return localP;
               }
               
-              // Para otros participantes, usar el valor del servidor (puede tener actualizaciones)
+              // Para otros participantes, usar el valor del servidor
               return serverP;
             });
             
@@ -191,11 +207,11 @@ export function useRoom(roomId: string) {
           
           // Actualizar el tiempo de última actualización después de confirmar con el servidor
           lastUpdateTimeRef.current.set(participantId, Date.now());
+          // NO limpiar el valor pendiente - mantenerlo para que el polling lo respete
         }
       } catch (error) {
-        // Si falla, limpiar el valor pendiente y dejar que el polling restaure el estado
-        pendingUpdatesRef.current.delete(participantId);
         console.error('Error al actualizar participante:', error);
+        // NO limpiar el valor pendiente en caso de error - mantenerlo
       }
     },
     [patchParticipant]
@@ -203,6 +219,12 @@ export function useRoom(roomId: string) {
 
   const finishParticipant = useCallback(
     async (participantId: string) => {
+      // Guardar el ID del participante actual
+      currentParticipantIdRef.current = participantId;
+      
+      // Marcar como finalizado en la lista local (PERMANENTE)
+      localFinalizedRef.current.add(participantId);
+      
       // Optimistic update - marcar como finalizado inmediatamente
       setRoom((prev) =>
         prev
@@ -218,21 +240,32 @@ export function useRoom(roomId: string) {
       try {
         const updatedRoom = await patchParticipant({ userId: participantId, finalizado: true });
         
-        // Confirmar con los datos del servidor, pero preservar el estado finalizado si está marcado localmente
+        // Confirmar con los datos del servidor, pero SIEMPRE preservar el estado finalizado local
         if (updatedRoom) {
           setRoom((prev) => {
             if (!prev) return updatedRoom;
             
             const mergedParticipants = updatedRoom.participantes.map((serverP) => {
               const localP = prev.participantes.find((p) => p.id === serverP.id);
-              if (!localP) return serverP;
-              
-              // Preservar el estado finalizado si está marcado localmente
-              if (serverP.id === participantId && localP.finalizado) {
-                return localP;
+              if (!localP) {
+                // Si es un nuevo participante del servidor, pero está en nuestra lista de finalizados
+                if (localFinalizedRef.current.has(serverP.id)) {
+                  return { ...serverP, finalizado: true };
+                }
+                return serverP;
               }
               
-              return serverP;
+              // SIEMPRE preservar el estado finalizado si está marcado localmente
+              if (serverP.id === participantId) {
+                // Para nuestro participante, SIEMPRE preservar el estado finalizado
+                return { ...localP, finalizado: true };
+              }
+              
+              // Para otros participantes, usar el valor del servidor pero preservar finalizado si está marcado
+              return {
+                ...serverP,
+                finalizado: localP.finalizado || localFinalizedRef.current.has(serverP.id) || serverP.finalizado
+              };
             });
             
             return {
@@ -245,17 +278,8 @@ export function useRoom(roomId: string) {
         return updatedRoom;
       } catch (error) {
         console.error('Error al finalizar participante:', error);
-        // Si falla, revertir el estado optimista
-        setRoom((prev) =>
-          prev
-            ? {
-                ...prev,
-                participantes: prev.participantes.map((p) =>
-                  p.id === participantId ? { ...p, finalizado: false } : p
-                ),
-              }
-            : prev
-        );
+        // NO revertir el estado optimista - mantenerlo marcado PERMANENTEMENTE
+        // El estado local ya está marcado, no lo revertimos
         return null;
       }
     },
