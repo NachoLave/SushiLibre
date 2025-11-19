@@ -137,7 +137,7 @@ export async function patchParticipantInRoom(
     { id: roomId },
     {
       $set: {
-        participantes,
+        participantes: participants,
         finalizado,
         updatedAt,
       },
@@ -146,7 +146,7 @@ export async function patchParticipantInRoom(
 
   // NO guardar automáticamente en finished_rooms - solo se guarda cuando se llama explícitamente a markRoomAsFinished
 
-  return toRoom({ ...doc, participantes, finalizado, updatedAt });
+  return toRoom({ ...doc, participantes: participants, finalizado, updatedAt });
 }
 
 export async function markRoomAsFinished(roomId: string): Promise<Room | null> {
