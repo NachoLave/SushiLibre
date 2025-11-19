@@ -42,11 +42,29 @@ export interface RoomDocument extends Omit<Room, 'updatedAt'> {
   updatedAt: number;
 }
 
+export interface FinishedRoomDocument {
+  _id?: ObjectId;
+  roomId: string;
+  participantes: Array<{
+    nombre: string;
+    piezas: number;
+  }>;
+  fecha: string;
+  finishedAt: number;
+}
+
 export type RoomsCollection = Collection<RoomDocument>;
+export type FinishedRoomsCollection = Collection<FinishedRoomDocument>;
 
 export async function getRoomsCollection(): Promise<RoomsCollection> {
   const connectedClient = await getClientPromise();
   const db = connectedClient.db(dbName);
   return db.collection<RoomDocument>('rooms');
+}
+
+export async function getFinishedRoomsCollection(): Promise<FinishedRoomsCollection> {
+  const connectedClient = await getClientPromise();
+  const db = connectedClient.db(dbName);
+  return db.collection<FinishedRoomDocument>('finished_rooms');
 }
 

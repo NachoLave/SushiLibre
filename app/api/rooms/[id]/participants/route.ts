@@ -10,9 +10,10 @@ export const runtime = 'nodejs';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const roomId = params.id.toUpperCase();
+  const { id } = await params;
+  const roomId = id.toUpperCase();
   const body = await request.json();
   const userId = body?.userId;
   const nombre = body?.nombre?.trim();
@@ -52,9 +53,10 @@ export async function POST(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const roomId = params.id.toUpperCase();
+  const { id } = await params;
+  const roomId = id.toUpperCase();
   const body = await request.json();
   const { userId, piezas, finalizado } = body;
 

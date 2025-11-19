@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import type { Room } from '@/lib/room-types';
-import { saveSession, getUserHistory } from '@/lib/storage';
 import Link from 'next/link';
 
 interface RankingModalProps {
@@ -22,22 +21,13 @@ export default function RankingModal({
   const currentParticipant = room.participantes.find((p) => p.id === currentUserId);
 
   const handleSaveSession = () => {
-    if (currentParticipant) {
-      const session = {
-        idSala: room.id,
-        fecha: new Date().toLocaleDateString('es-ES'),
-        participantes: sorted,
-        tuPuntaje: currentParticipant.piezas,
-        tuNombre: currentParticipant.nombre,
-      };
+    // Ya no guardamos en localStorage, se guarda automáticamente en MongoDB cuando se finaliza
+    // Solo marcamos como guardado para feedback visual
+    setSaved(true);
 
-      saveSession(session);
-      setSaved(true);
-
-      setTimeout(() => {
-        onBackHome();
-      }, 1500);
-    }
+    setTimeout(() => {
+      onBackHome();
+    }, 1500);
   };
 
   return (

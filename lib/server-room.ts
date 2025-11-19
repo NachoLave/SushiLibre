@@ -1,4 +1,4 @@
-import { getRoomsCollection, RoomDocument } from './db';
+import { getRoomsCollection, getFinishedRoomsCollection, RoomDocument, FinishedRoomDocument } from './db';
 import type { Participant, Room } from './room-types';
 import { generateRoomCode } from './room-utils';
 
@@ -131,6 +131,28 @@ export async function patchParticipantInRoom(
     }
   );
 
+  // Si todos finalizaron, guardar automáticamente en finished_rooms
+  if (allFinished && !doc.finalizado) {
+    const finishedRooms = await getFinishedRoomsCollection();
+    const finishedAt = Date.now();
+    const fecha = new Date().toLocaleDateString('es-ES');
+    
+    // Verificar si ya existe para evitar duplicados
+    const existing = await finishedRooms.findOne({ roomId });
+    if (!existing) {
+      const finishedDoc: FinishedRoomDocument = {
+        roomId: doc.id,
+        participantes: participants.map((p) => ({
+          nombre: p.nombre,
+          piezas: p.piezas,
+        })),
+        fecha,
+        finishedAt,
+      };
+      await finishedRooms.insertOne(finishedDoc);
+    }
+  }
+
   return toRoom({ ...doc, participantes, finalizado, updatedAt });
 }
 
@@ -156,6 +178,26 @@ export async function markRoomAsFinished(roomId: string): Promise<Room | null> {
       },
     }
   );
+
+  // Guardar en finished_rooms automáticamente
+  const finishedRooms = await getFinishedRoomsCollection();
+  const finishedAt = Date.now();
+  const fecha = new Date().toLocaleDateString('es-ES');
+  
+  // Verificar si ya existe para evitar duplicados
+  const existing = await finishedRooms.findOne({ roomId });
+  if (!existing) {
+    const finishedDoc: FinishedRoomDocument = {
+      roomId: doc.id,
+      participantes: doc.participantes.map((p) => ({
+        nombre: p.nombre,
+        piezas: p.piezas,
+      })),
+      fecha,
+      finishedAt,
+    };
+    await finishedRooms.insertOne(finishedDoc);
+  }
 
   return toRoom({ ...doc, finalizado: true, updatedAt });
 }

@@ -5,33 +5,51 @@ export const runtime = 'nodejs';
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const room = await getRoomFromServer(params.id.toUpperCase());
+  try {
+    const { id } = await params;
+    const room = await getRoomFromServer(id.toUpperCase());
 
-  if (!room) {
-    return NextResponse.json({ message: 'Sala no encontrada' }, { status: 404 });
+    if (!room) {
+      return NextResponse.json({ message: 'Sala no encontrada' }, { status: 404 });
+    }
+
+    return NextResponse.json({ room });
+  } catch (error) {
+    console.error('Error en GET /api/rooms/[id]:', error);
+    return NextResponse.json(
+      { message: 'Error al obtener la sala', error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ room });
 }
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { finalizado } = await request.json();
+  try {
+    const { id } = await params;
+    const { finalizado } = await request.json();
 
-  if (typeof finalizado !== 'boolean') {
-    return NextResponse.json({ message: 'Dato finalizado inválido' }, { status: 400 });
+    if (typeof finalizado !== 'boolean') {
+      return NextResponse.json({ message: 'Dato finalizado inválido' }, { status: 400 });
+    }
+
+    const room = await markRoomAsFinished(id.toUpperCase());
+
+    if (!room) {
+      return NextResponse.json({ message: 'Sala no encontrada' }, { status: 404 });
+    }
+
+    return NextResponse.json({ room });
+  } catch (error) {
+    console.error('Error en PATCH /api/rooms/[id]:', error);
+    return NextResponse.json(
+      { message: 'Error al actualizar la sala', error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
   }
-
-  const room = await markRoomAsFinished(params.id.toUpperCase());
-
-  if (!room) {
-    return NextResponse.json({ message: 'Sala no encontrada' }, { status: 404 });
-  }
-
-  return NextResponse.json({ room });
 }
 
