@@ -131,8 +131,7 @@ export default function AnimatedSushi({ isEating = false }: AnimatedSushiProps) 
   return (
     <div 
       ref={containerRef}
-      className={`relative transition-all duration-300 ${isEating ? 'scale-110 animate-bounce-scale' : 'scale-100'}`}
-      style={{ width: '380px', height: '380px' }}
+      className={`relative transition-all duration-300 w-[360px] h-[360px] md:w-[380px] md:h-[380px] ${isEating ? 'scale-110 animate-bounce-scale' : 'scale-100'}`}
     >
       {scriptLoaded && !hasError ? (
         <>

@@ -189,9 +189,8 @@ export default function History() {
               >
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="font-semibold text-foreground text-lg">Sala {room.roomId}</h3>
-                    <p className="text-sm text-muted-foreground">{room.fecha}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <h3 className="font-semibold text-foreground text-lg">{room.roomId}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
                       {room.participantes.length} participante{room.participantes.length !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -199,7 +198,7 @@ export default function History() {
                     <p className="text-2xl font-bold text-primary">
                       {Math.max(...room.participantes.map(p => p.piezas))}
                     </p>
-                    <p className="text-xs text-muted-foreground">máximo</p>
+                    <p className="text-xs text-muted-foreground">{room.fecha}</p>
                   </div>
                 </div>
               </button>
