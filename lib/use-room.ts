@@ -12,6 +12,7 @@ export function useRoom(roomId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFetchingRef = useRef(false);
 
   const lastUpdateTimeRef = useRef<Map<string, number>>(new Map());
   const pendingUpdatesRef = useRef<Map<string, number>>(new Map());
@@ -20,7 +21,12 @@ export function useRoom(roomId: string) {
 
   const fetchRoom = useCallback(async () => {
     if (!roomId) return;
+    
+    // Evitar peticiones duplicadas
+    if (isFetchingRef.current) return;
+    
     const normalizedRoomId = roomId.toUpperCase();
+    isFetchingRef.current = true;
 
     try {
       const response = await fetch(`/api/rooms/${normalizedRoomId}`, {
@@ -103,24 +109,32 @@ export function useRoom(roomId: string) {
       setRoom(null);
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, [roomId]);
 
   useEffect(() => {
-    fetchRoom();
-    pollRef.current && clearInterval(pollRef.current);
+    // Limpiar intervalo anterior si existe
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
 
-    // Polling cada 1.5 segundos para actualizaciones más frecuentes
+    // Cargar inicialmente
+    fetchRoom();
+
+    // Polling cada 2 segundos para balancear actualizaciones y carga del servidor
     pollRef.current = setInterval(() => {
       fetchRoom();
-    }, 1500);
+    }, 2000);
 
     return () => {
       if (pollRef.current) {
         clearInterval(pollRef.current);
+        pollRef.current = null;
       }
     };
-  }, [fetchRoom]);
+  }, [roomId, fetchRoom]);
 
   const patchParticipant = useCallback(
     async (payload: Partial<Participant> & { userId: string }) => {
