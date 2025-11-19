@@ -81,8 +81,20 @@ export async function PATCH(
 
     return NextResponse.json({ room: updatedRoom });
   } catch (error) {
+    console.error('Error en PATCH /api/rooms/[id]/participants:', {
+      roomId,
+      userId,
+      piezas,
+      finalizado,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    
     return NextResponse.json(
-      { message: (error as Error).message || 'Error al actualizar participante.' },
+      { 
+        message: error instanceof Error ? error.message : 'Error al actualizar participante.',
+        error: process.env.NODE_ENV === 'development' ? String(error) : undefined
+      },
       { status: 500 }
     );
   }

@@ -100,21 +100,34 @@ export async function patchParticipantInRoom(
     return null;
   }
 
+  // Si la sala ya está finalizada, no permitir actualizaciones (excepto si es para ver el estado)
+  if (doc.finalizado && typeof payload.piezas === 'number') {
+    throw new Error('La sala ya finalizó. No se pueden actualizar contadores.');
+  }
+
   const participants = [...doc.participantes];
   const idx = participants.findIndex((p) => p.id === payload.userId);
 
   if (idx < 0) {
-    throw new Error('Participante no encontrado en esta sala.');
+    // Si el participante no existe, intentar agregarlo con valores por defecto
+    // Esto puede pasar si hay un desincronización entre cliente y servidor
+    console.warn(`Participante ${payload.userId} no encontrado en sala ${roomId}, agregándolo...`);
+    participants.push({
+      id: payload.userId,
+      nombre: `Usuario ${payload.userId.slice(0, 4)}`,
+      piezas: typeof payload.piezas === 'number' ? payload.piezas : 0,
+      finalizado: payload.finalizado || false,
+    });
+  } else {
+    const target = { ...participants[idx] };
+    if (typeof payload.piezas === 'number') {
+      target.piezas = payload.piezas;
+    }
+    if (typeof payload.finalizado === 'boolean') {
+      target.finalizado = payload.finalizado;
+    }
+    participants[idx] = target;
   }
-
-  const target = { ...participants[idx] };
-  if (typeof payload.piezas === 'number') {
-    target.piezas = payload.piezas;
-  }
-  if (typeof payload.finalizado === 'boolean') {
-    target.finalizado = payload.finalizado;
-  }
-  participants[idx] = target;
 
   const allFinished = participants.length > 0 && participants.every((p) => p.finalizado);
   const finalizado = allFinished ? true : doc.finalizado;
