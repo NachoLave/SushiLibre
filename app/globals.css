@@ -194,3 +194,57 @@
 .animate-bounce-scale {
   animation: bounce-scale 0.6s ease-in-out;
 }
+
+@keyframes fall {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(100vh) rotate(360deg) scale(0.5);
+  }
+}
+
+.animate-fall {
+  animation: fall 2s linear forwards;
+}
+
+/* Ocultar el badge de "Built with Spline" */
+spline-viewer::part(logo),
+spline-viewer::part(branding),
+spline-viewer [class*="spline-branding"],
+spline-viewer [class*="branding"],
+spline-viewer a[href*="spline"],
+spline-viewer div[class*="spline"] a,
+spline-viewer a {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Ocultar cualquier elemento que contenga "Built with" o "Spline" */
+spline-viewer [class*="badge"],
+spline-viewer [class*="Badge"],
+spline-viewer [id*="badge"],
+spline-viewer [id*="Badge"],
+spline-viewer [class*="logo"],
+spline-viewer [class*="Logo"],
+spline-viewer [class*="watermark"],
+spline-viewer [class*="Watermark"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Ocultar cualquier link o elemento de branding dentro del viewer */
+spline-viewer a,
+spline-viewer button[class*="brand"],
+spline-viewer div[class*="brand"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

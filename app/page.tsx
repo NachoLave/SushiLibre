@@ -1,24 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { getUserHistory } from '@/lib/storage';
 import AnimatedSushi from '@/components/animated-sushi';
 
 export default function Home() {
-  const [record, setRecord] = useState<number | null>(null);
-
-  useEffect(() => {
-    const history = getUserHistory();
-    if (history.record > 0) {
-      setRecord(history.record);
-    }
-  }, []);
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md flex flex-col items-center">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8 mt-4">
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-2 tracking-tight font-serif">
             Sushi Score
           </h1>
@@ -28,19 +18,9 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="mb-12">
+        <div className="mb-2 -mt-4">
           <AnimatedSushi />
         </div>
-
-        {record !== null && (
-          <div className="bg-white/60 backdrop-blur-md border border-white/40 rounded-3xl p-8 mb-12 shadow-lg w-full">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2 font-medium">Tu Récord Personal</p>
-              <p className="text-6xl font-bold text-primary mb-2">{record}</p>
-              <p className="text-sm text-muted-foreground">piezas de sushi</p>
-            </div>
-          </div>
-        )}
 
         <div className="space-y-3 w-full mb-8">
           <Link href="/create-room" className="block">

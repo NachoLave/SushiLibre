@@ -20,6 +20,10 @@ export default function FullScreenCounter({
   const [floatingTexts, setFloatingTexts] = useState<
     { id: number; text: string; x: number; y: number }[]
   >([]);
+  const [fallingSushi, setFallingSushi] = useState<
+    { id: number; x: number; startY: number; rotation: number }[]
+  >([]);
+  const [isEating, setIsEating] = useState(false);
   const [nextId, setNextId] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,6 +45,10 @@ export default function FullScreenCounter({
       navigator.vibrate(30);
     }
 
+    // Animación de comer
+    setIsEating(true);
+    setTimeout(() => setIsEating(false), 600);
+
     // Floating text animation
     const id = nextId;
     setFloatingTexts((prev) => [...prev, { id, text: '+1', x: relativeX, y: relativeY }]);
@@ -50,8 +58,26 @@ export default function FullScreenCounter({
       setFloatingTexts((prev) => prev.filter((t) => t.id !== id));
     }, 1200);
 
-    // Play pop sound
-    playPop();
+    // Crear piezas de sushi cayendo
+    const sushiCount = 3 + Math.floor(Math.random() * 3); // 3-5 piezas
+    for (let i = 0; i < sushiCount; i++) {
+      const sushiId = nextId + i + 1000;
+      const startX = relativeX + (Math.random() - 0.5) * 100;
+      const rotation = (Math.random() - 0.5) * 360;
+      
+      setFallingSushi((prev) => [
+        ...prev,
+        { id: sushiId, x: startX, startY: -20, rotation },
+      ]);
+
+      setTimeout(() => {
+        setFallingSushi((prev) => prev.filter((s) => s.id !== sushiId));
+      }, 2000);
+    }
+    setNextId(nextId + sushiCount + 1000);
+
+    // Play eating sound
+    playEatingSound();
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -75,24 +101,30 @@ export default function FullScreenCounter({
     setTouchStart(null);
   };
 
-  const playPop = () => {
+  const playEatingSound = () => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const now = audioContext.currentTime;
-      const osc = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-
-      osc.connect(gain);
-      gain.connect(audioContext.destination);
-
-      osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
-
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-
-      osc.start(now);
-      osc.stop(now + 0.1);
+      
+      // Sonido de masticar (múltiples osciladores para sonido más realista)
+      for (let i = 0; i < 3; i++) {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        
+        // Frecuencia que simula masticar
+        const baseFreq = 150 + i * 50;
+        osc.frequency.setValueAtTime(baseFreq, now + i * 0.05);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.7, now + i * 0.05 + 0.08);
+        
+        gain.gain.setValueAtTime(0.15, now + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.05 + 0.08);
+        
+        osc.start(now + i * 0.05);
+        osc.stop(now + i * 0.05 + 0.08);
+      }
     } catch (error) {
       // Audio context not available
     }
@@ -123,6 +155,25 @@ export default function FullScreenCounter({
         </div>
       ))}
 
+      {/* Piezas de sushi cayendo */}
+      {fallingSushi.map((sushi) => (
+        <div
+          key={sushi.id}
+          className="absolute animate-fall pointer-events-none z-10"
+          style={{
+            left: `${sushi.x}px`,
+            top: `${sushi.startY}px`,
+            transform: `rotate(${sushi.rotation}deg)`,
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" className="drop-shadow-sm">
+            <rect x="6" y="8" width="12" height="12" rx="6" ry="6" fill="#1a1a1a" />
+            <circle cx="12" cy="14" r="5" fill="#f5f5dc" />
+            <ellipse cx="12" cy="13" rx="3.5" ry="2.5" fill="#ff9966" />
+          </svg>
+        </div>
+      ))}
+
       {/* Participants list - top right */}
       {otherParticipants.length > 0 && (
         <div className="absolute top-4 right-4 space-y-2 max-h-48 overflow-y-auto">
@@ -143,7 +194,7 @@ export default function FullScreenCounter({
 
       {/* Center - Animated sushi and counter */}
       <div className="flex flex-col items-center gap-8">
-        <AnimatedSushi />
+        <AnimatedSushi isEating={isEating} />
 
         <div className="text-center">
           <p className="text-lg text-muted-foreground mb-2 font-medium">{participant.nombre}</p>
