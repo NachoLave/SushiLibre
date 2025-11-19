@@ -35,15 +35,3 @@ export function getUserHistory(): UserHistory {
   return JSON.parse(stored);
 }
 
-export function getRoom(roomId: string): any {
-  const stored = localStorage.getItem(`room_${roomId}`);
-  return stored ? JSON.parse(stored) : null;
-}
-
-export function saveRoom(roomId: string, room: any): void {
-  localStorage.setItem(`room_${roomId}`, JSON.stringify(room));
-}
-
-export function generateRoomId(): string {
-  return Math.random().toString(36).substr(2, 8).toUpperCase();
-}

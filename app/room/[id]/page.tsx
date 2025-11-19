@@ -1,8 +1,9 @@
 'use client';
 
 import { use, useState, useEffect } from 'react';
-import { useRoom, Participant } from '@/lib/use-room';
-import { getOrCreateUserId, getRoom } from '@/lib/storage';
+import { useRoom } from '@/lib/use-room';
+import type { Participant } from '@/lib/room-types';
+import { getOrCreateUserId } from '@/lib/storage';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import FullScreenCounter from '@/components/full-screen-counter';
@@ -10,7 +11,7 @@ import RankingModal from '@/components/ranking-modal';
 
 export default function Room({ params }: { params: Promise<{ id: string }> }) {
   const { id: roomId } = use(params);
-  const { room, loading, updateParticipant, finishParticipant, finishRoom } = useRoom(roomId);
+  const { room, loading, error, updateParticipant, finishParticipant } = useRoom(roomId);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [showRanking, setShowRanking] = useState(false);
   const [finishingStatus, setFinishingStatus] = useState<'idle' | 'finishing' | 'done'>('idle');
@@ -30,11 +31,11 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
     );
   }
 
-  if (!room) {
+  if (error) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-pink-50 via-blue-50 to-green-50 flex flex-col items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-lg text-destructive mb-4">Sala no encontrada</p>
+          <p className="text-lg text-destructive mb-4">{error}</p>
           <Link href="/" className="text-primary hover:text-primary/80 font-medium">
             Volver al inicio
           </Link>
@@ -43,29 +44,27 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
     );
   }
 
+  if (!room) {
+    return null;
+  }
+
   const currentParticipant = room.participantes.find((p) => p.id === currentUserId);
   const finishedCount = room.participantes.filter((p) => p.finalizado).length;
   const totalCount = room.participantes.length;
   const allFinished = finishedCount === totalCount;
 
   const handleFinish = async () => {
-    if (currentParticipant && !currentParticipant.finalizado) {
-      setFinishingStatus('finishing');
-      finishParticipant(currentUserId);
+    if (!currentParticipant || currentParticipant.finalizado) return;
+    setFinishingStatus('finishing');
+    const updatedRoom = await finishParticipant(currentUserId);
 
-      // Wait a moment for state sync
-      setTimeout(() => {
-        const updated = getRoom(roomId);
-        const allDone = updated?.participantes.every((p: Participant) => p.finalizado);
-        if (allDone) {
-          finishRoom();
-          setShowRanking(true);
-          setFinishingStatus('done');
-        } else {
-          setFinishingStatus('idle');
-        }
-      }, 300);
+    if (updatedRoom?.finalizado) {
+      setShowRanking(true);
+      setFinishingStatus('done');
+      return;
     }
+
+    setFinishingStatus('idle');
   };
 
   if (showRanking || room.finalizado) {

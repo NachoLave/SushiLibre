@@ -15,7 +15,7 @@ Aplicación web para organizar batallas de sushi libre. Permite crear una sala, 
 
 - Next.js 16 (App Router) y React 19.
 - Tailwind CSS y componentes Radix UI.
-- Persistencia en `localStorage`.
+- Persistencia híbrida: `localStorage` para historial personal y MongoDB para compartir salas en tiempo real entre dispositivos.
 - PNPM como gestor de paquetes.
 
 ## Requisitos
@@ -24,6 +24,15 @@ Aplicación web para organizar batallas de sushi libre. Permite crear una sala, 
 - PNPM 9+
 
 ## Configuración local
+
+1. Crea un archivo `.env.local` en la raíz con:
+
+```
+MONGODB_URI=<cadena de conexión con usuario y contraseña>
+MONGODB_DB=sushilibre
+```
+
+2. Instala dependencias y arranca el entorno:
 
 ```bash
 pnpm install
@@ -57,7 +66,7 @@ URL en producción: https://tu-dominio.vercel.app
 
 ## Próximos pasos sugeridos
 
-- Integrar un backend o servicio en tiempo real si se necesita sincronización entre dispositivos que no comparten `localStorage`.
+- Habilitar WebSockets o un servicio tipo Ably/Pusher para actualizar los contadores instantáneamente sin polling.
 - Añadir autenticación para respaldar el historial en la nube.
 
 

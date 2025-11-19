@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Participant } from '@/lib/use-room';
+import type { Participant } from '@/lib/room-types';
 
 interface CounterCardProps {
   participant: Participant;

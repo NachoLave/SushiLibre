@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Participant } from '@/lib/use-room';
+import type { Participant } from '@/lib/room-types';
 import AnimatedSushi from './animated-sushi';
 
 interface FullScreenCounterProps {

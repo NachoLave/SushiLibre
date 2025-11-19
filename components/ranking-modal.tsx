@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Room } from '@/lib/use-room';
+import type { Room } from '@/lib/room-types';
 import { saveSession, getUserHistory } from '@/lib/storage';
 import Link from 'next/link';
 

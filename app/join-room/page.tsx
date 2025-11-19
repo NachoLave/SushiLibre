@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getRoom, saveRoom, getOrCreateUserId } from '@/lib/storage';
-import type { Participant } from '@/lib/use-room';
+import { getOrCreateUserId } from '@/lib/storage';
 import Link from 'next/link';
 
 export default function JoinRoom() {
@@ -13,7 +12,7 @@ export default function JoinRoom() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedRoomId = roomId.trim().toUpperCase();
     if (!nombre.trim() || !trimmedRoomId) return;
@@ -21,42 +20,33 @@ export default function JoinRoom() {
     setLoading(true);
     setError('');
 
-    const room = getRoom(trimmedRoomId);
-    if (!room) {
-      setError('Sala no encontrada. Verifica el código.');
-      setLoading(false);
-      return;
-    }
-
-    if (room.finalizado) {
-      setError('Esta sala ya ha terminado.');
-      setLoading(false);
-      return;
-    }
-
     const userId = getOrCreateUserId();
-    const participant = {
-      id: userId,
-      nombre: nombre,
-      piezas: 0,
-      finalizado: false,
-    };
 
-    const existingParticipant = room.participantes.find((p: Participant) => p.id === userId);
-    const updated = existingParticipant
-      ? {
-          ...room,
-          participantes: room.participantes.map((p: Participant) =>
-            p.id === userId ? { ...p, nombre } : p
-          ),
-        }
-      : {
-          ...room,
-          participantes: [...room.participantes, participant],
-        };
+    try {
+      const response = await fetch(`/api/rooms/${trimmedRoomId}/participants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          nombre: nombre.trim(),
+        }),
+      });
 
-    saveRoom(trimmedRoomId, updated);
-    router.push(`/room/${trimmedRoomId}`);
+      if (response.status === 404) {
+        throw new Error('Sala no encontrada. Verifica el código.');
+      }
+
+      if (!response.ok) {
+        const { message } = await response.json().catch(() => ({ message: 'Error al unirse.' }));
+        throw new Error(message || 'No se pudo unir a la sala.');
+      }
+
+      router.push(`/room/${trimmedRoomId}`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

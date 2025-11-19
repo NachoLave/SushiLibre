@@ -1,106 +1,142 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { saveRoom, getRoom } from '@/lib/storage';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { Participant, Room } from '@/lib/room-types';
 
-export interface Participant {
-  id: string;
-  nombre: string;
-  piezas: number;
-  finalizado: boolean;
-}
-
-export interface Room {
-  id: string;
-  creador: string;
-  participantes: Participant[];
-  finalizado: boolean;
-  createdAt: number;
+interface ApiRoomResponse {
+  room: Room;
 }
 
 export function useRoom(roomId: string) {
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const sanitizeRoom = useCallback((data: Room | null) => {
-    if (!data) return null;
+  const fetchRoom = useCallback(async () => {
+    if (!roomId) return;
+    const normalizedRoomId = roomId.toUpperCase();
 
-    const seenIds = new Set<string>();
-    let modified = false;
-    const uniqueParticipants = data.participantes.filter((participant) => {
-      if (seenIds.has(participant.id)) {
-        modified = true;
-        return false;
+    try {
+      const response = await fetch(`/api/rooms/${normalizedRoomId}`, {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error('Sala no encontrada');
       }
-      seenIds.add(participant.id);
-      return true;
-    });
 
-    if (!modified) {
-      return data;
+      const data: ApiRoomResponse = await response.json();
+      setRoom(data.room);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+      setRoom(null);
+    } finally {
+      setLoading(false);
     }
-
-    const sanitized = { ...data, participantes: uniqueParticipants };
-    saveRoom(data.id, sanitized);
-    return sanitized;
-  }, []);
+  }, [roomId]);
 
   useEffect(() => {
-    const storedRoom = sanitizeRoom(getRoom(roomId));
-    if (storedRoom) {
-      setRoom(storedRoom);
-    }
-    setLoading(false);
+    fetchRoom();
+    pollRef.current && clearInterval(pollRef.current);
 
-    const interval = setInterval(() => {
-      const updated = sanitizeRoom(getRoom(roomId));
-      if (updated) {
-        setRoom(updated);
+    pollRef.current = setInterval(() => {
+      fetchRoom();
+    }, 1500);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
       }
-    }, 300);
+    };
+  }, [fetchRoom]);
 
-    return () => clearInterval(interval);
-  }, [roomId, sanitizeRoom]);
+  const patchParticipant = useCallback(
+    async (payload: Partial<Participant> & { userId: string }) => {
+      if (!roomId) return null;
+      const normalizedRoomId = roomId.toUpperCase();
+      try {
+        const response = await fetch(`/api/rooms/${normalizedRoomId}/participants`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-  const updateParticipant = useCallback(
-    (participantId: string, piezas: number) => {
-      if (room) {
-        const updated = {
-          ...room,
-          participantes: room.participantes.map((p) =>
-            p.id === participantId ? { ...p, piezas } : p
-          ),
-        };
-        setRoom(updated);
-        saveRoom(roomId, updated);
+        if (!response.ok) {
+          throw new Error('No se pudo actualizar la sala');
+        }
+
+        const data: ApiRoomResponse = await response.json();
+        setRoom(data.room);
+        return data.room;
+      } catch (err) {
+        console.error(err);
+        fetchRoom();
+        return null;
       }
     },
-    [room, roomId]
+    [roomId, fetchRoom]
+  );
+
+  const updateParticipant = useCallback(
+    async (participantId: string, piezas: number) => {
+      setRoom((prev) =>
+        prev
+          ? {
+              ...prev,
+              participantes: prev.participantes.map((p) =>
+                p.id === participantId ? { ...p, piezas } : p
+              ),
+            }
+          : prev
+      );
+
+      await patchParticipant({ userId: participantId, piezas });
+    },
+    [patchParticipant]
   );
 
   const finishParticipant = useCallback(
-    (participantId: string) => {
-      if (room) {
-        const updated = {
-          ...room,
-          participantes: room.participantes.map((p) =>
-            p.id === participantId ? { ...p, finalizado: true } : p
-          ),
-        };
-        setRoom(updated);
-        saveRoom(roomId, updated);
-      }
+    async (participantId: string) => {
+      setRoom((prev) =>
+        prev
+          ? {
+              ...prev,
+              participantes: prev.participantes.map((p) =>
+                p.id === participantId ? { ...p, finalizado: true } : p
+              ),
+            }
+          : prev
+      );
+
+      return patchParticipant({ userId: participantId, finalizado: true });
     },
-    [room, roomId]
+    [patchParticipant]
   );
 
-  const finishRoom = useCallback(() => {
-    if (room) {
-      const updated = { ...room, finalizado: true };
-      setRoom(updated);
-      saveRoom(roomId, updated);
-    }
-  }, [room, roomId]);
+  const finishRoom = useCallback(async () => {
+    if (!roomId) return;
+    const normalizedRoomId = roomId.toUpperCase();
 
-  return { room, loading, updateParticipant, finishParticipant, finishRoom };
+    try {
+      const response = await fetch(`/api/rooms/${normalizedRoomId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ finalizado: true }),
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudo finalizar la sala');
+      }
+
+      const data: ApiRoomResponse = await response.json();
+      setRoom(data.room);
+    } catch (err) {
+      console.error(err);
+      fetchRoom();
+    }
+  }, [roomId, fetchRoom]);
+
+  return { room, loading, error, updateParticipant, finishParticipant, finishRoom };
 }

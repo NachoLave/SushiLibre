@@ -2,39 +2,44 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { generateRoomId, saveRoom, getOrCreateUserId } from '@/lib/storage';
+import { getOrCreateUserId } from '@/lib/storage';
 import Link from 'next/link';
 
 export default function CreateRoom() {
   const [nombre, setNombre] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nombre.trim()) return;
 
     setLoading(true);
-    const roomId = generateRoomId();
+    setError('');
     const userId = getOrCreateUserId();
 
-    const room = {
-      id: roomId,
-      creador: nombre,
-      participantes: [
-        {
-          id: userId,
-          nombre: nombre,
-          piezas: 0,
-          finalizado: false,
-        },
-      ],
-      finalizado: false,
-      createdAt: Date.now(),
-    };
+    try {
+      const response = await fetch('/api/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          userId,
+        }),
+      });
 
-    saveRoom(roomId, room);
-    router.push(`/room/${roomId}`);
+      if (!response.ok) {
+        throw new Error('No se pudo crear la sala. Intenta de nuevo.');
+      }
+
+      const data = await response.json();
+      router.push(`/room/${data.room.id}`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,6 +54,11 @@ export default function CreateRoom() {
           <p className="text-center text-muted-foreground mb-8">Eres el anfitrión de esta batalla</p>
 
           <form onSubmit={handleCreate} className="space-y-6">
+            {error && (
+              <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-xl text-destructive text-sm">
+                {error}
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-foreground mb-3">Tu nombre</label>
               <input
